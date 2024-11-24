@@ -1,0 +1,80 @@
+version: '3.3'
+services:
+  app:
+    build: # Utiliser "build" pour forcer l'utilisation du Dockerfile
+      context: .
+      dockerfile: Dockerfile
+    container_name: laravel_app
+    volumes:
+      - ./src:/var/www/html
+    ports:
+      - "8000:8000"
+    networks:
+      - laravel_network
+    working_dir: /var/www/html
+    environment: # Ajout des variables d'environnement Laravel
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: base64:YOUR_APP_KEY_HERE # Remplacez par une clé générée
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: missions
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    command: sh -c "php artisan serve --host=0.0.0.0 --port=8000"
+
+  composer:
+    image: composer:latest
+    container_name: composer
+    working_dir: /var/www/html
+    volumes:
+      - ./src:/var/www/html
+    depends_on: # Assurer que "db" et "app" démarrent d'abord
+      - app
+
+  webserver:
+    image: nginx:alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./src:/var/www/html # Changer "." en "./src" pour éviter la duplication
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - laravel_network
+    depends_on:
+      - app
+
+  db:
+    image: mysql:5.7
+    container_name: mysql
+    environment:
+      MYSQL_DATABASE: missions
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    networks:
+      - laravel_network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    networks:
+      - laravel_network
+
+networks:
+  laravel_network:
+    driver: bridge
+
+volumes:
+  db_data:
